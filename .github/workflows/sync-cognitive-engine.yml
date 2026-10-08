@@ -1,0 +1,53 @@
+name: Sincronizar Cérebro Cognitivo (Isabela Amorim)
+
+on:
+  schedule:
+    # Executa a cada 2 horas todos os dias
+    - cron: '0 */2 * * *'
+  workflow_dispatch: # Permite disparar manualmente com 1 clique no GitHub
+
+jobs:
+  sync:
+    name: Sincronizar cognitive_engine.py
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 📥 Checkout do Repositório Eu Viro Voto
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔗 Configurar Upstream (Repositório da Isabela Amorim)
+        run: |
+          git remote add upstream https://github.com/iaaamorim/viravoto-whatsapp.git
+          git fetch upstream main
+
+      - name: 🔍 Verificar Alterações no cognitive_engine.py
+        id: check_diff
+        run: |
+          UPSTREAM_HASH=$(git rev-parse --short upstream/main)
+          echo "UPSTREAM_HASH=$UPSTREAM_HASH" >> $GITHUB_ENV
+
+          # Puxa o arquivo da versão mais recente da Isabela
+          git checkout upstream/main -- app/cognitive_engine.py
+
+          # Checa se o arquivo mudou em relação ao commit local
+          if git status --porcelain | grep -q "app/cognitive_engine.py"; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Alterações detectadas no cognitive_engine.py!"
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "Nenhuma alteração detectada. Cérebro cognitivo já está na versão mais recente."
+          fi
+
+      - name: 🚀 Commitar e Enviar para Main
+        if: steps.check_diff.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/cognitive_engine.py
+          git commit -m "chore(sync): atualiza cognitive_engine da Isabela Amorim [upstream ${UPSTREAM_HASH}]"
+          git push origin main
+          echo "Commit enviado para a branch main! O deploy na Vercel será disparado automaticamente."
