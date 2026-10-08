@@ -1,0 +1,17 @@
+{
+  "name": "Eu Viro Voto",
+  "short_name": "EuViroVoto",
+  "description": "Copiloto tático de conversa para diálogo com eleitores no 2º turno",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b141a",
+  "theme_color": "#00a884",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00a884" />
+      <stop offset="100%" stop-color="#006d57" />
+    </linearGradient>
+    <linearGradient id="bubbleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f0fdf4" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+  <!-- Balão de conversa principal -->
+  <path d="M130 150 C130 110, 382 110, 382 150 L382 270 C382 310, 290 310, 260 310 L200 360 L200 310 L160 310 C130 310, 130 280, 130 250 Z" fill="url(#bubbleGrad)" />
+  <!-- Voto / Checkmark de virada -->
+  <path d="M200 215 L240 255 L325 170" fill="none" stroke="#00a884" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Estrela sutil ou ponto de virada -->
+  <circle cx="370" cy="140" r="16" fill="#facc15" />
+</svg>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Eu Viro Voto | Copiloto Tático 2º Turno</title>
+  
+  <!-- PWA & Mobile Optimization -->
+  <meta name="theme-color" content="#00a884">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Eu Viro Voto">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <!-- PWA Install Prompt Banner -->
+  <div id="installBanner" class="install-banner">
+    <span>📲 Instale o <strong>Eu Viro Voto</strong> no seu celular!</span>
+    <button id="installBtn" class="install-btn">Instalar App</button>
+  </div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-wrapper">
+        <img src="/icon.svg" alt="Eu Viro Voto" class="brand-icon">
+        <div>
+          <div class="brand-title">
+            Eu Viro Voto
+            <span class="brand-badge">2º Turno</span>
+          </div>
+          <div class="brand-sub">Copiloto Tático de Conversa</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="main-wrapper">
+
+    <!-- Brief Onboarding / Guia Rápido -->
+    <div class="intro-card">
+      Recebeu uma mensagem difícil de familiar ou indeciso? <strong>Cole aqui</strong> para receber o que evitar falar, perguntas desarmadoras e respostas prontas para copiar e enviar no WhatsApp!
+    </div>
+
+    <!-- Input Card -->
+    <div class="input-card">
+      <div class="input-label">
+        <span>💬 Mensagem do Eleitor / Familiar:</span>
+      </div>
+
+      <textarea 
+        id="userInput" 
+        class="message-textarea" 
+        placeholder="Cole aqui o que a pessoa te disse... Ex: 'Não voto no PT de jeito nenhum', 'Vou anular meu voto', etc."
+      ></textarea>
+
+      <!-- Exemplos Rápidos -->
+      <div class="samples-wrapper">
+        <button class="sample-chip" onclick="fillSample('Não voto no PT de jeito nenhum, precisamos salvar o Brasil')">"Não voto no PT..."</button>
+        <button class="sample-chip" onclick="fillSample('Vou anular meu voto, são todos iguais')">"Vou anular..."</button>
+        <button class="sample-chip" onclick="fillSample('Minha mãe é aposentada e está preocupada')">"Aposentadoria..."</button>
+        <button class="sample-chip" onclick="fillSample('O Flávio Bolsonaro é o único que pode defender o país')">"Flávio Bolsonaro..."</button>
+      </div>
+
+      <!-- Controles de Áudio (Multimodal) -->
+      <div class="audio-controls">
+        <span id="audioStatusText" style="color: #8696a0;">Ou grave/envie um áudio:</span>
+        <div style="display: flex; gap: 8px;">
+          <button id="recordAudioBtn" class="audio-btn" type="button" onclick="toggleAudioRecording()">
+            <span id="micIcon">🎙️</span> <span id="recordBtnText">Gravar</span>
+          </button>
+          <label class="audio-btn" style="cursor: pointer;">
+            📁 Arquivo
+            <input type="file" id="audioFileInput" accept="audio/*" style="display: none;" onchange="handleAudioFile(event)">
+          </label>
+        </div>
+      </div>
+
+      <button id="submitBtn" class="submit-btn" onclick="submitAnalysis()">
+        <span>🚀 Desmontar & Gerar Respostas</span>
+      </button>
+    </div>
+
+    <!-- Loading Box -->
+    <div id="loadingBox" class="loading-box">
+      <div class="spinner"></div>
+      <div style="font-weight: 600; font-size: 0.95rem; color: #e9edef;">Analisando com Linguística Cognitiva...</div>
+      <div style="font-size: 0.8rem; color: #8696a0; margin-top: 6px;">Identificando o frame e preparando opções desarmadoras</div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="resultsWrapper" class="results-wrapper">
+
+      <!-- Card: Evite Falar -->
+      <div class="card card-evite" id="eviteCard">
+        <div class="card-header">
+          <span class="card-tag">🚫 O que NÃO falar (Armadilha)</span>
+        </div>
+        <div class="evite-text" id="eviteContent"></div>
+      </div>
+
+      <!-- Card: Opção 1 (Pergunta Suave / Família) -->
+      <div class="card card-option" id="op1Card">
+        <div class="card-header">
+          <span class="card-tag">💬 Opção 1: Pergunta Suave (Família / Indeciso)</span>
+        </div>
+        <div class="bubble-content" id="op1Content"></div>
+        <div class="card-actions">
+          <button class="btn-action" onclick="copyCardContent('op1Content', this)">
+            📋 Copiar Resposta
+          </button>
+          <button class="btn-action btn-share" onclick="shareWhatsApp('op1Content')">
+            📲 Enviar no WhatsApp
+          </button>
+        </div>
+      </div>
+
+      <!-- Card: Opção 2 (Resposta Firme / Grupo & Colegas) -->
+      <div class="card card-option" id="op2Card">
+        <div class="card-header">
+          <span class="card-tag">💬 Opção 2: Resposta Firme (Colega / Grupo)</span>
+        </div>
+        <div class="bubble-content" id="op2Content"></div>
+        <div class="card-actions">
+          <button class="btn-action" onclick="copyCardContent('op2Content', this)">
+            📋 Copiar Resposta
+          </button>
+          <button class="btn-action btn-share" onclick="shareWhatsApp('op2Content')">
+            📲 Enviar no WhatsApp
+          </button>
+        </div>
+      </div>
+
+      <!-- Card: Ideia para Áudio de 10s -->
+      <div class="card card-audio" id="audioCard">
+        <div class="card-header">
+          <span class="card-tag">🎙️ Roteiro para Áudio Curto (10s)</span>
+        </div>
+        <div class="bubble-content" id="audioContent"></div>
+        <div class="card-actions">
+          <button class="btn-action" onclick="copyCardContent('audioContent', this)">
+            📋 Copiar Roteiro
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Rodapé de Transparência Legal & TSE -->
+    <footer class="legal-footer">
+      ⚖️ <em>Sou um assistente automatizado de IA para apoio a voluntários que pesquisa notícias em fontes públicas de imprensa.</em>
+      <br>Baseado nas estratégias de Linguística Cognitiva e dados de campanha.
+    </footer>
+
+  </main>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">Texto copiado! Pronto para colar no WhatsApp. ✓</div>
+
+  <!-- JavaScript -->
+  <script src="/app.js"></script>
+</body>
+</html>
