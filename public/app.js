@@ -1,10 +1,33 @@
-// Eu Viro Voto App - Frontend Logic
+// Eu Viro Voto App - Frontend Logic com Rastreamento Google Analytics 4 (G-JGEYVZG1ZB)
 
 let deferredPrompt = null;
 let mediaRecorder = null;
 let audioChunks = [];
 let recordedAudioBase64 = null;
 let isRecording = false;
+let lastSubmittedQuestion = "";
+let inputMethodUsed = "texto";
+
+// Helper universal de envio de eventos para o Google Analytics 4
+function trackGA(eventName, params = {}) {
+  if (typeof window.gtag === 'function') {
+    try {
+      // Limpa e sanitiza parâmetros para garantir compatibilidade com GA4
+      const safeParams = {};
+      for (const [key, val] of Object.entries(params)) {
+        if (typeof val === 'string') {
+          // Limita strings para até 300 caracteres para evitar truncamento no GA4
+          safeParams[key] = val.slice(0, 300);
+        } else {
+          safeParams[key] = val;
+        }
+      }
+      window.gtag('event', eventName, safeParams);
+    } catch (err) {
+      console.warn('[GA4] Falha ao enviar evento:', eventName, err);
+    }
+  }
+}
 
 // 1. Registro de Service Worker para PWA
 if ('serviceWorker' in navigator) {
@@ -21,14 +44,17 @@ window.addEventListener('beforeinstallprompt', (e) => {
   deferredPrompt = e;
   const banner = document.getElementById('installBanner');
   if (banner) banner.style.display = 'flex';
+  trackGA('pwa_banner_exibido');
 });
 
 const installBtn = document.getElementById('installBtn');
 if (installBtn) {
   installBtn.addEventListener('click', async () => {
     if (deferredPrompt) {
+      trackGA('pwa_clique_instalar');
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
+      trackGA('pwa_instalacao_resultado', { resultado: outcome });
       if (outcome === 'accepted') {
         document.getElementById('installBanner').style.display = 'none';
       }
@@ -43,6 +69,12 @@ function fillSample(text) {
   input.value = text;
   input.focus();
   input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  inputMethodUsed = "exemplo_clicado";
+
+  // Rastreia no Google Analytics qual exemplo foi acionado
+  trackGA('exemplo_clicado', {
+    texto_exemplo: text
+  });
 }
 
 // 4. Gravação de Áudio via Navegador
@@ -68,8 +100,13 @@ async function toggleAudioRecording() {
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
           recordedAudioBase64 = reader.result;
+          inputMethodUsed = "audio_gravado";
           statusText.textContent = 'Áudio gravado pronto! ✓';
           statusText.style.color = '#00a884';
+
+          trackGA('audio_gravacao_concluida', {
+            tamanho_bytes: audioBlob.size
+          });
         };
         stream.getTracks().forEach(track => track.stop());
       };
@@ -81,8 +118,11 @@ async function toggleAudioRecording() {
       micIcon.textContent = '⏹️';
       statusText.textContent = 'Gravando sua voz...';
       statusText.style.color = '#ef4444';
+
+      trackGA('audio_gravacao_iniciada');
     } catch (err) {
       alert('Não foi possível acessar o microfone. Permita o microfone no navegador.');
+      trackGA('audio_gravacao_negada', { erro: err.message });
     }
   } else {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
@@ -105,8 +145,15 @@ function handleAudioFile(event) {
   reader.readAsDataURL(file);
   reader.onloadend = () => {
     recordedAudioBase64 = reader.result;
+    inputMethodUsed = "arquivo_audio";
     statusText.textContent = `Áudio (${file.name.slice(0, 15)}...) pronto! ✓`;
     statusText.style.color = '#00a884';
+
+    trackGA('audio_arquivo_selecionado', {
+      nome_arquivo: file.name,
+      tamanho_bytes: file.size,
+      formato: file.type
+    });
   };
 }
 
@@ -124,11 +171,23 @@ async function submitAnalysis() {
     return;
   }
 
+  lastSubmittedQuestion = text || "[Áudio gravado/encaminhado]";
+
+  // Rastreia o evento principal: PERGUNTA ENVIADA
+  trackGA('pergunta_enviada', {
+    pergunta: lastSubmittedQuestion,
+    metodo_entrada: recordedAudioBase64 && text ? 'texto_e_audio' : (recordedAudioBase64 ? 'apenas_audio' : inputMethodUsed),
+    tamanho_caracteres: text.length,
+    tem_audio: Boolean(recordedAudioBase64)
+  });
+
   // UI state: Carregando
   submitBtn.disabled = true;
   loadingBox.style.display = 'block';
   resultsWrapper.style.display = 'none';
   loadingBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  const startTime = performance.now();
 
   try {
     const response = await fetch('/api/analyze', {
@@ -142,10 +201,25 @@ async function submitAnalysis() {
 
     const resData = await response.json();
     const result = (resData && resData.data) ? resData.data : resData;
+    const durationMs = Math.round(performance.now() - startTime);
+
+    // Rastreia o evento principal: VEREDITO GERADO
+    trackGA('veredito_gerado', {
+      pergunta_origem: lastSubmittedQuestion,
+      evite: result.evite || '',
+      opcao_1: result.opcao_1 || '',
+      opcao_2: result.opcao_2 || '',
+      audio: result.audio || '',
+      duracao_ms: durationMs
+    });
 
     renderResults(result);
   } catch (err) {
     console.error('Erro na requisição:', err);
+    trackGA('erro_analise', {
+      pergunta: lastSubmittedQuestion,
+      erro_mensagem: err.message
+    });
     showToast('Erro ao conectar com o servidor. Tente novamente.');
   } finally {
     submitBtn.disabled = false;
@@ -208,6 +282,13 @@ function copyCardContent(elementId, btnElement) {
   if (!el) return;
   const text = el.textContent.replace(/^"|"$/g, '');
 
+  // Rastreia no Google Analytics qual resposta foi copiada pelo voluntário
+  trackGA('resposta_copiada', {
+    tipo_resposta: elementId.replace('Content', ''),
+    texto_copiado: text,
+    pergunta_origem: lastSubmittedQuestion
+  });
+
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(() => {
       triggerCopySuccess(btnElement);
@@ -251,6 +332,14 @@ function shareWhatsApp(elementId) {
   const el = document.getElementById(elementId);
   if (!el) return;
   const text = el.textContent.trim();
+
+  // Rastreia clique de compartilhamento no WhatsApp
+  trackGA('compartilhar_whatsapp', {
+    tipo_resposta: elementId.replace('Content', ''),
+    texto_compartilhado: text,
+    pergunta_origem: lastSubmittedQuestion
+  });
+
   const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
   window.open(url, '_blank');
 }
