@@ -197,30 +197,46 @@ async function submitAnalysis() {
         message: text,
         audio_base64: recordedAudioBase64
       })
-    });
+    let resData = null;
+    if (!response.ok) {
+      try {
+        resData = await response.json();
+      } catch (_) {
+        const textErr = await response.text().catch(() => '');
+        throw new Error(textErr ? textErr.slice(0, 100) : `Erro HTTP ${response.status}`);
+      }
+    } else {
+      resData = await response.json();
+    }
 
-    const resData = await response.json();
     const result = (resData && resData.data) ? resData.data : resData;
     const durationMs = Math.round(performance.now() - startTime);
+
+    if (resData && resData.status === "error" && resData.detail) {
+      console.warn("Aviso da API:", resData.detail);
+      showToast(resData.detail);
+    }
 
     // Rastreia o evento principal: VEREDITO GERADO
     trackGA('veredito_gerado', {
       pergunta_origem: lastSubmittedQuestion,
-      evite: result.evite || '',
-      opcao_1: result.opcao_1 || '',
-      opcao_2: result.opcao_2 || '',
-      audio: result.audio || '',
+      evite: result?.evite || '',
+      opcao_1: result?.opcao_1 || '',
+      opcao_2: result?.opcao_2 || '',
+      audio: result?.audio || '',
       duracao_ms: durationMs
     });
 
-    renderResults(result);
+    if (result && (result.opcao_1 || result.evite)) {
+      renderResults(result);
+    }
   } catch (err) {
     console.error('Erro na requisição:', err);
     trackGA('erro_analise', {
       pergunta: lastSubmittedQuestion,
       erro_mensagem: err.message
     });
-    showToast('Erro ao conectar com o servidor. Tente novamente.');
+    showToast(err.message && err.message.length < 80 ? err.message : 'Erro ao conectar com o servidor. Tente novamente.');
   } finally {
     submitBtn.disabled = false;
     loadingBox.style.display = 'none';

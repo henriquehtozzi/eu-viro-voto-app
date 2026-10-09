@@ -1,14 +1,11 @@
 name: Sincronizar Cérebro Cognitivo (Isabela Amorim)
 
 on:
-  schedule:
-    # Executa a cada 2 horas todos os dias
-    - cron: '0 */2 * * *'
-  workflow_dispatch: # Permite disparar manualmente com 1 clique no GitHub
+  workflow_dispatch: # Disparo manual controlado para evitar deploys que quebrem a Vercel
 
 jobs:
   sync:
-    name: Sincronizar cognitive_engine.py
+    name: Sincronizar Instruções Táticas do Upstream
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,30 +21,25 @@ jobs:
           git remote add upstream https://github.com/iaaamorim/viravoto-whatsapp.git
           git fetch upstream main
 
-      - name: 🔍 Verificar Alterações no cognitive_engine.py
+      - name: 🔍 Extrair Diretrizes do Upstream
         id: check_diff
         run: |
           UPSTREAM_HASH=$(git rev-parse --short upstream/main)
           echo "UPSTREAM_HASH=$UPSTREAM_HASH" >> $GITHUB_ENV
-
-          # Puxa o arquivo da versão mais recente da Isabela
+          
+          # Cria pasta temporária para inspecionar upstream
           git checkout upstream/main -- app/cognitive_engine.py
+          # Preserva o arquivo do upstream em local seguro para revisão
+          mv app/cognitive_engine.py app/cognitive_engine_upstream.py
+          git checkout HEAD -- app/cognitive_engine.py
+          
+          echo "has_changes=true" >> $GITHUB_OUTPUT
 
-          # Checa se o arquivo mudou em relação ao commit local
-          if git status --porcelain | grep -q "app/cognitive_engine.py"; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "Alterações detectadas no cognitive_engine.py!"
-          else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "Nenhuma alteração detectada. Cérebro cognitivo já está na versão mais recente."
-          fi
-
-      - name: 🚀 Commitar e Enviar para Main
+      - name: 🚀 Registrar Versão Upstream
         if: steps.check_diff.outputs.has_changes == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add app/cognitive_engine.py
-          git commit -m "chore(sync): atualiza cognitive_engine da Isabela Amorim [upstream ${UPSTREAM_HASH}]"
+          git add app/cognitive_engine_upstream.py
+          git commit -m "chore(sync): registra versão de referência da Isabela Amorim [upstream ${UPSTREAM_HASH}]" || exit 0
           git push origin main
-          echo "Commit enviado para a branch main! O deploy na Vercel será disparado automaticamente."
