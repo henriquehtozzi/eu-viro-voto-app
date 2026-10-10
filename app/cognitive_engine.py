@@ -1,9 +1,18 @@
 import os
 import json
+import random
 import requests
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+def get_gemini_keys() -> List[str]:
+    """
+    Recupera a lista de chaves da pool a partir das variáveis de ambiente.
+    Aceita GEMINI_API_KEYS (separadas por vírgula) ou GEMINI_API_KEY tradicional.
+    """
+    raw_keys = os.getenv("GEMINI_API_KEYS") or os.getenv("GEMINI_API_KEY") or ""
+    keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
+    return keys
+
 
 SYSTEM_INSTRUCTION = """Você é o Eu Viro Voto, um copiloto tático para virada de votos no 2º turno.
 Sua missão é ajudar voluntários e ativistas a dialogarem com pessoas indecisas, moderadas e biconceituais no segundo turno das eleições presidenciais.
@@ -60,15 +69,19 @@ MODELS = ["gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemini-flash-lat
 async def analyze_and_reframe(user_input: str, audio_base64: Optional[str] = None) -> Dict[str, str]:
     """
     Analisa o texto ou áudio recebido e devolve um dicionário com os campos fracionados.
+    Utiliza pool com rotação aleatória e failover automático em caso de esgotamento de cota.
     """
-    apiKey = os.getenv("GEMINI_API_KEY", GEMINI_API_KEY)
-    if not apiKey:
+    keys = get_gemini_keys()
+    if not keys:
         return {
             "evite": "Servidor sem chave de IA configurada.",
             "opcao_1": "Erro de configuração no servidor.",
             "opcao_2": "",
             "audio": ""
         }
+
+    shuffled_keys = keys.copy()
+    random.shuffle(shuffled_keys)
 
     # Monta o conteúdo (texto ou áudio multimodal)
     parts = []
@@ -101,18 +114,23 @@ async def analyze_and_reframe(user_input: str, audio_base64: Optional[str] = Non
         }
     }
 
-    for model_name in MODELS:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={apiKey}"
-        try:
-            res = requests.post(url, json=payload, timeout=10)
-            if res.status_code == 200:
-                data = res.json()
-                raw_json = data["candidates"][0]["content"]["parts"][0]["text"]
-                return json.loads(raw_json)
-            else:
-                print(f"[Gemini {model_name}] Erro {res.status_code}: {res.text[:120]}")
-        except Exception as e:
-            print(f"[Gemini {model_name}] Exceção: {e}")
+    for api_key in shuffled_keys:
+        for model_name in MODELS:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+            try:
+                res = requests.post(url, json=payload, timeout=12)
+                if res.status_code == 200:
+                    data = res.json()
+                    raw_json = data["candidates"][0]["content"]["parts"][0]["text"]
+                    return json.loads(raw_json)
+                elif res.status_code in (429, 403):
+                    masked = f"{api_key[:6]}...{api_key[-4:]}"
+                    print(f"[Gemini Pool] Chave {masked} bateu status {res.status_code}. Alternando para a próxima chave...")
+                    break
+                else:
+                    print(f"[Gemini {model_name}] Erro {res.status_code}: {res.text[:120]}")
+            except Exception as e:
+                print(f"[Gemini {model_name}] Exceção: {e}")
 
     return {
         "evite": "Servidores ocupados no momento.",
